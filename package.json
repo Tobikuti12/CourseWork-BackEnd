@@ -1,0 +1,12 @@
+{
+    "name": "course-work",
+    "private": true,
+    "scripts": {
+        "start": "index.html"
+    },
+    "Dependencies": {},
+    "dependencies": {
+        "express": "^5.1.0",
+        "mongodb": "^3.6.3"
+    }
+}
