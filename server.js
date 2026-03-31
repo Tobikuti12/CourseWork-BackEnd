@@ -43,7 +43,7 @@ app.get('/search', async (req,res) => {
   const q = (req.query.q || req.query.query || '').trim();
   try {
     const filter = q ? { title: { $regex: q, $options: 'i' } } : {};
-    const results = db ? await db.collection('Products').find(filter).toArray() : [];
+    const results = db ? await db.collection('products').find(filter).toArray() : [];
     res.json(results);
   } catch(e){
     console.error('search error', e);
