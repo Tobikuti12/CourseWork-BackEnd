@@ -11,7 +11,7 @@ app.use((req, res, next) => {
     next();
 });
 
-// 2. Permissive CORS
+// 2. CORS (Permissive for testing and Render)
 app.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
@@ -19,29 +19,27 @@ app.use((req, res, next) => {
     next();
 });
 
+// 3. MongoDB Connection
 const MONGO_URI = "mongodb+srv://tobi1:Tmgolf159@cluster0.k6z8gsk.mongodb.net/Webstore?retryWrites=true&w=majority";
 let db;
 
 MongoClient.connect(MONGO_URI, { useUnifiedTopology: true })
     .then(client => {
         db = client.db('Webstore');
-        console.log('✅ Mongo connected successfully');
+        console.log('✅ Connected to MongoDB: Webstore');
     })
-    .catch(err => console.error('❌ Mongo connection error:', err));
+    .catch(err => console.error('❌ Connection error:', err));
 
-// 3. GET ALL LESSONS
+// 4. GET ALL LESSONS
 app.get('/lessons', async (req, res) => {
     try {
-        // We check 'lessons' first, then 'products' as a fallback
         let results = await db.collection('lessons').find({}).toArray();
-        if (results.length === 0) {
-            results = await db.collection('products').find({}).toArray();
-        }
+        if (results.length === 0) results = await db.collection('products').find({}).toArray();
         res.json(results);
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 4. FULL STACK SEARCH
+// 5. SEARCH LESSONS
 app.get('/search', async (req, res) => {
     const q = req.query.q || '';
     const filter = {
@@ -52,14 +50,12 @@ app.get('/search', async (req, res) => {
     };
     try {
         let results = await db.collection('lessons').find(filter).toArray();
-        if (results.length === 0) {
-            results = await db.collection('products').find(filter).toArray();
-        }
+        if (results.length === 0) results = await db.collection('products').find(filter).toArray();
         res.json(results);
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 5. POST ORDER
+// 6. POST ORDER
 app.post('/order', async (req, res) => {
     try {
         const result = await db.collection('orders').insertOne(req.body);
@@ -67,14 +63,24 @@ app.post('/order', async (req, res) => {
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// 6. PUT UPDATE SPACES
+// 7. PUT UPDATE INVENTORY
 app.put('/lessons/:id', async (req, res) => {
     try {
         const id = new ObjectId(req.params.id);
-        await db.collection('lessons').updateOne(
+        const spacesToReduce = req.body.spaces || 1;
+        
+        // We try to update 'lessons', then 'products' if lessons doesn't exist
+        let result = await db.collection('lessons').updateOne(
             { _id: id },
-            { $inc: { availableInventory: -req.body.spaces } }
+            { $inc: { availableInventory: -spacesToReduce } }
         );
+        
+        if (result.matchedCount === 0) {
+            result = await db.collection('products').updateOne(
+                { _id: id },
+                { $inc: { availableInventory: -spacesToReduce } }
+            );
+        }
         res.json({ msg: 'Inventory updated' });
     } catch (e) { res.status(500).json({ error: e.message }); }
 });
